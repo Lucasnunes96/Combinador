@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QListWidget, QListWidgetItem, QPushButton, \
-    QAbstractItemView, QLabel, QFileDialog, QWidget, QComboBox, QLineEdit, QMessageBox
+    QAbstractItemView, QLabel, QFileDialog, QWidget, QComboBox, QLineEdit, QMessageBox, QFrame
 from PyQt5.QtCore import Qt, QMimeData, QDataStream, QByteArray, QIODevice, QSize
 from PyQt5.QtGui import QDrag, QCursor
 from docx import Document
@@ -8,6 +8,7 @@ from docxcompose.composer import Composer
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import logging
+from datetime import datetime
 
 class ListboxWidget(QListWidget):
     def __init__(self, parent=None):
@@ -159,14 +160,31 @@ class especif_arquiv(QWidget):
         self.escolh_sec.addItems(['Plenária', '1ª Câmara', '2ª Câmara'])
         self.escolh_sec.setGeometry(110, 0, 100, 25)
 
+        def conferir_data(data):
+            try:
+                date = datetime.strptime(data, '%d/%m/%Y')
+                if not 1 <= date.day <= 31 and not 1 <= date.month <= 12:
+                    QMessageBox.warning(self, "Atenção", "Por favor utilize o formato de data dd/mm/aaaa.")
+                    self.escolh_data.clear()
+                else:
+                    pass
+            except ValueError:
+                QMessageBox.warning(self, "Atenção", "Por favor utilize o formato de data dd/mm/aaaa.")
+                self.escolh_data.clear()
+
         self.escolh_data_label = QLabel("Data da Sessão", self)
         self.escolh_data_label.setGeometry(0, 30, 100, 25)
         self.escolh_data = QLineEdit(self)
         self.escolh_data.setPlaceholderText("Ex.: 25/04/2023")
         self.escolh_data.setGeometry(110, 30, 100, 25)
+        self.escolh_data.editingFinished.connect(lambda: conferir_data(self.escolh_data.text()))
 
         self.presentes_label = QLabel("Presentes na Sessão", self)
-        self.presentes_label.setGeometry(75, 60, 200, 25)
+        self.presentes_label.setGeometry(0, 60, 310, 25)
+        bottom_line = QFrame(self.presentes_label)
+        bottom_line.setGeometry(0, self.presentes_label.height() - 1, self.presentes_label.width(), 1)
+        bottom_line.setFrameShape(QFrame.HLine)
+        bottom_line.setStyleSheet("color: #c0c0c0")
         self.presentes_label.setStyleSheet("font-weight: bold")
 
         self.anselmo_label = QLabel("Anselmo Roberto de Almeida Brito", self)
@@ -230,46 +248,57 @@ class especif_arquiv(QWidget):
                            'Rafael Rodrigues de Alcântara', 'Enio Andrade Pimenta', 'Gustavo Henrique Albuquerque Santos'])
         self.mpc.setGeometry(85, 360, 225, 25)
 
+        linha_mpc = QFrame(self)
+        linha_mpc.setGeometry(0, 390, 310, 1)
+        linha_mpc.setStyleSheet("color: #c0c0c0")
+        linha_mpc.setFrameShape(QFrame.HLine)
+
         self.escolh_assinante_label = QLabel("Assinante", self)
-        self.escolh_assinante_label.setGeometry(0, 390, 60, 25)
+        self.escolh_assinante_label.setGeometry(0, 400, 60, 25)
         self.assinante = QComboBox(self)
         self.assinante.addItems(['Lucas Nunes Aureliano Silva', 'Jéssica Luana Silva de Lima',
                                  'André Henrique da Rocha Alencar Rego'])
-        self.assinante.setGeometry(85, 390, 225, 25)
+        self.assinante.setGeometry(85, 400, 225, 25)
 
         self.cargo_assin_label = QLabel("Cargo do Assinante", self)
-        self.cargo_assin_label.setGeometry(0, 420, 100, 25)
+        self.cargo_assin_label.setGeometry(0, 430, 100, 25)
         self.cargo_assin = QLineEdit(self)
-        self.cargo_assin.setGeometry(110, 420, 100, 25)
+        self.cargo_assin.setGeometry(110, 430, 100, 25)
 
         self.matric_ass_lab = QLabel("Matrícula do Assinante", self)
-        self.matric_ass_lab.setGeometry(0, 450, 125, 25)
+        self.matric_ass_lab.setGeometry(0, 460, 125, 25)
         self.matric_ass = QLineEdit(self)
-        self.matric_ass.setGeometry(110, 450, 100, 25)
+        self.matric_ass.setGeometry(110, 460, 100, 25)
 
 
 class AppDemo(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setFixedSize(1050, 525)
-        self.setWindowTitle("Formatador de publicações. Closed Beta 1.0")
+        self.setWindowTitle("Gerenciador de Aposentadorias. Closed Beta v1.1")
+        #self.setStyleSheet('background-color: rgb(34, 36, 42);')
         self.lstbox_view = ListboxWidget(self)
         self.secao_view = especif_arquiv(self)
 
         self.btn_delete = QPushButton('Remover arquivo', self)
-        self.btn_delete.setGeometry(400, 280, 200, 50)
+        self.btn_delete.setGeometry(400, 295, 200, 50)
         self.btn_delete.clicked.connect(self.delete_item)
 
         self.directory_btn = QPushButton('Escolha o destino', self)
-        self.directory_btn.setGeometry(600, 280, 200, 50)
+        self.directory_btn.setGeometry(600, 295, 200, 50)
         self.directory_btn.clicked.connect(self.getDirectory)
 
         self.juntar_btn = QPushButton('Gerar arquivo para publicação', self)
-        self.juntar_btn.setGeometry(800, 280, 200, 50)
+        self.juntar_btn.setGeometry(800, 295, 200, 50)
         self.juntar_btn.clicked.connect(self.juntar_arq)
 
-        self.arraste_aqui = QLabel("Arraste os arquivos na seção abaixo (apenas .docx ou .doc).", self)
+        self.arraste_aqui = QLabel("Arraste os arquivos na seção abaixo (apenas .docx).", self)
         self.arraste_aqui.setGeometry(550, 65, 500, 50)
+
+        self.destino_label = QLabel("Destino: ", self)
+        self.destino_label.setGeometry(400, 260, 75, 50)
+        self.escolha_destino = QLabel(self)
+        self.escolha_destino.setGeometry(445, 260, 600, 50)
 
     def mes_do_ano(self, data):
         meses = {
@@ -302,6 +331,7 @@ class AppDemo(QMainWindow):
 
         try:
             logger.info('Começando a função juntar_arq')
+
             if not self.secao_view.escolh_data.text() or not self.secao_view.matric_ass or not self.secao_view.cargo_assin:
                 QMessageBox.warning(self, "Atenção", "Por favor, preencha todos os campos antes de continuar.")
                 logger.warning('Campos obrigatórios não preenchidos')
@@ -521,7 +551,46 @@ class AppDemo(QMainWindow):
 
                 logger.debug('paragrafo assinatura final executado')
 
-                composer.save("combined_file.docx")
+                composer.save(f"{self.escolha_destino.text()}\\novo.docx")
+
+                for arquivo in items:
+                    doc = Document(arquivo)
+                    texto_adicionado = False
+                    style = doc.styles['Normal']
+                    font = style.font
+                    font.name = 'Times New Roman'
+                    font.size = Pt(12)
+                    for paragraph in doc.paragraphs:
+                        if not texto_adicionado:
+                            presentes = doc.add_paragraph()
+                            presentes.add_run(f"\nConselheira Substituta ").bold = False
+                            presentes.add_run(f"Ana Raquel Ribeiro Sampaio Calheiros ").bold = True
+                            presentes.add_run(f"- Relatora").bold = False
+
+                            presentes.add_run(f"\n{sexo[pres]} ").bold = False
+                            presentes.add_run(f"{pres}").bold = True
+                            presentes.add_run(f" - {pres1}").bold = False
+
+                            presentes.add_run(f"\nTomaram parte na votação:").bold = True
+
+                            for votante in votantes:
+                                presentes.add_run(f"\n{sexo[votante]} ").bold = False
+                                presentes.add_run(f"{votante}").bold = True
+
+                            for presen in presente:
+                                presentes.add_run(f"\n{sexo[presen]} ").bold = False
+                                presentes.add_run(f"{presen}").bold = True
+                                presentes.add_run(f" - Presente").bold = False
+
+                            presentes.add_run(f"\n{sexo[self.secao_view.mpc.currentText()]} ").bold = False
+                            presentes.add_run(f"{self.secao_view.mpc.currentText()}").bold = True
+                            presentes.add_run(f" - Ministério Público de Contas - Presente").bold = False
+
+                            texto_adicionado = True
+
+                    doc.save(arquivo)
+
+                self.lstbox_view.clear()
                 QMessageBox.information(self, "Sucesso", "Arquivo gerado com sucesso!")
 
         except Exception as e:
@@ -532,7 +601,7 @@ class AppDemo(QMainWindow):
             self,
             caption='Selecione o destino'
         )
-        print(folder)
+        self.escolha_destino.setText(folder)
 
     def delete_item(self):
         for item in self.lstbox_view.selectedItems():

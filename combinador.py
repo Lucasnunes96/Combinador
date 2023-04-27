@@ -1,8 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QListWidget, QListWidgetItem, QPushButton, \
     QAbstractItemView, QLabel, QFileDialog, QWidget, QComboBox, QLineEdit, QMessageBox, QFrame
-from PyQt5.QtCore import Qt, QMimeData, QDataStream, QByteArray, QIODevice, QSize
-from PyQt5.QtGui import QDrag, QCursor
+from PyQt5.QtCore import Qt
 from docx import Document
 from docxcompose.composer import Composer
 from docx.shared import Pt, Cm
@@ -15,11 +14,11 @@ class ListboxWidget(QListWidget):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setGeometry(400, 100, 600, 175)
-        self.setDragEnabled(True)
-        self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
         self.current_item = None
+        self.setUpdatesEnabled(True)
+
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -34,7 +33,7 @@ class ListboxWidget(QListWidget):
             event.setDropAction(Qt.CopyAction)
             urls = event.mimeData().urls()
             for url in urls:
-                if not url.toLocalFile().lower().endswith(('.docx', '.doc')):
+                if not url.toLocalFile().lower().endswith('.docx'):
                     event.ignore()
                     return
             event.accept()
@@ -52,101 +51,9 @@ class ListboxWidget(QListWidget):
             links = []
 
             for url in event.mimeData().urls():
-                if url.isLocalFile():
-                    if url.toLocalFile().lower().endswith(('.docx', '.doc')):
-                        links.append(str(url.toLocalFile()))
-                else:
-                    links.append(str(url.toString()))
+                links.append(str(url.toLocalFile()))
 
             self.addItems(links)
-        elif event.mimeData().hasFormat('application/x-qabstractitemmodeldatalist'):
-            mime_data = event.mimeData()
-            bstream = event.mimeData().data('application/x-qabstractitemmodeldatalist')
-            data_stream = QDataStream(bstream, QIODevice.ReadOnly)
-
-            row = self.currentRow()
-            selected_rows = self.selectedIndexes()
-
-            while not data_stream.atEnd():
-                row, column, data = self.decodeData(data_stream)
-
-                if row not in [idx.row() for idx in selected_rows]:
-                    self.insertItem(row, QListWidgetItem(data))
-                elif row != self.currentRow():
-                    # Move dragged item to the new location
-                    if self.current_item.listWidget() == self:
-                        self.takeItem(self.currentRow())
-                    self.insertItem(row, self.current_item)
-                    self.setCurrentRow(row)
-
-            event.accept()
-        else:
-            event.ignore()
-
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-        if event.button() == Qt.LeftButton:
-            self.current_item = self.itemAt(event.pos())
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-
-        if not self.current_item:
-            return
-
-        mime_data = QMimeData()
-        mime_data.setData('application/x-qabstractitemmodeldatalist', self.encodeData())
-
-        drag = QDrag(self)
-        drag.setMimeData(mime_data)
-        drag.setPixmap(self.current_item.icon().pixmap(self.current_item.icon().actualSize(QSize(50, 50))))
-        drag.setHotSpot(event.pos() - self.visualItemRect(self.itemAt(event.pos())).topLeft())
-
-        drop_action = drag.exec_(Qt.MoveAction)
-
-        if drop_action == Qt.MoveAction:
-            selected_rows = self.selectedIndexes()
-            rows = [idx.row() for idx in selected_rows]
-            rows.sort(reverse=True)
-
-            # Obter a posição do cursor durante o evento dropEvent
-            cursor_pos = self.mapFromGlobal(QCursor.pos())
-            new_row = self.row(self.itemAt(cursor_pos))
-
-            # Ajustar a posição do item antes de inseri-lo na nova posição
-            if new_row is None:
-                new_row = self.count() - 1
-            elif new_row in rows:
-                new_row = min(rows)
-
-            for row in rows:
-                item = self.takeItem(row)
-                self.insertItem(new_row, item)
-                new_row += 1
-
-            self.setCurrentRow(rows[-1] + 1)
-
-        self.current_item = None
-
-    def encodeData(self):
-        mime_data = QByteArray()
-        data_stream = QDataStream(mime_data, QIODevice.WriteOnly)
-
-        selected_rows = self.selectedIndexes()
-        for index in selected_rows:
-            text = self.itemFromIndex(index).text()
-            data_stream.writeInt(index.row())
-            data_stream.writeInt(index.column())
-            data_stream.writeQString(text)
-
-        return mime_data
-
-    def decodeData(self, data_stream):
-        row = data_stream.readInt()
-        column = data_stream.readInt()
-        text = data_stream.readQString()
-
-        return row, column, text
 
 
 class especif_arquiv(QWidget):
@@ -276,7 +183,6 @@ class AppDemo(QMainWindow):
         super().__init__()
         self.setFixedSize(1050, 525)
         self.setWindowTitle("Gerenciador de Aposentadorias. Closed Beta v1.1")
-        #self.setStyleSheet('background-color: rgb(34, 36, 42);')
         self.lstbox_view = ListboxWidget(self)
         self.secao_view = especif_arquiv(self)
 
@@ -299,6 +205,29 @@ class AppDemo(QMainWindow):
         self.destino_label.setGeometry(400, 260, 75, 50)
         self.escolha_destino = QLabel(self)
         self.escolha_destino.setGeometry(445, 260, 600, 50)
+
+        self.up_btn = QPushButton('↑', self)
+        self.up_btn.setGeometry(370, 100, 25, 25)
+        self.up_btn.clicked.connect(self.up_function)
+
+        self.down_btn = QPushButton('↓', self)
+        self.down_btn.setGeometry(370, 130, 25, 25)
+        self.down_btn.clicked.connect(self.down_function)
+
+
+    def up_function(self):
+        currentRow = self.lstbox_view.currentRow()
+        if currentRow > 0:
+            currentItem = self.lstbox_view.takeItem(currentRow)
+            self.lstbox_view.insertItem(currentRow - 1, currentItem)
+            self.lstbox_view.setCurrentRow(currentRow - 1)
+
+    def down_function(self):
+        currentRow = self.lstbox_view.currentRow()
+        if currentRow < self.lstbox_view.count() - 1:
+            currentItem = self.lstbox_view.takeItem(currentRow)
+            self.lstbox_view.insertItem(currentRow + 1, currentItem)
+            self.lstbox_view.setCurrentRow(currentRow + 1)
 
     def mes_do_ano(self, data):
         meses = {
